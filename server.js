@@ -48,6 +48,10 @@ let sock = null;
 let qrCode = null;
 let conectado = false;
 let logsBot = [];
+let botGen = 0;        // invalida eventos de sockets antigos
+let ultimoInit = 0;    // debounce entre inicializações
+let reconectTimer = null;
+let falhas401 = 0;     // backoff quando a sessão é rejeitada
 
 function logBot(msg) {
   const l = `[${new Date().toLocaleString('pt-BR')}] ${msg}`;
@@ -172,6 +176,7 @@ app.post('/api/grupo/desconectar', async (req, res) => {
     conectado = false; qrCode = null;
     try { fs.rmSync(path.join(__dirname, 'auth'), { recursive: true, force: true }); } catch {}
     logBot('Sessão encerrada pelo painel. Gerando novo QR...');
+    ultimoInit = 0;
     iniciarBot();
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ erro: e.message }); }
@@ -200,18 +205,27 @@ async function enviarRelatorio() {
 }
 
 async function iniciarBot() {
+  const agora = Date.now();
+  if (agora - ultimoInit < 8000) return; // debounce: evita loop de inits
+  ultimoInit = agora;
+  const gen = ++botGen;
+  if (reconectTimer) { clearTimeout(reconectTimer); reconectTimer = null; }
+  qrCode = null;
   try {
     const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = await import('@whiskeysockets/baileys');
     const { default: QRCode } = await import('qrcode');
     const { Boom } = await import('@hapi/boom').catch(() => ({ Boom: null }));
     const pino = (await import('pino')).default;
     const { state, saveCreds } = await useMultiFileAuthState('./auth');
+    const anterior = sock;
     sock = makeWASocket({ auth: state, logger: pino({ level: 'silent' }) });
+    try { if (anterior && anterior !== sock) anterior.ev.removeAllListeners(); } catch {}
     sock.ev.on('creds.update', saveCreds);
     sock.ev.on('connection.update', async (u) => {
+      if (gen !== botGen) return; // ignora eventos de socket obsoleto
       const { connection, lastDisconnect, qr } = u;
       if (qr) { qrCode = await QRCode.toDataURL(qr); logBot('QR Code gerado — escaneie no painel.'); }
-      if (connection === 'open') { conectado = true; qrCode = null; logBot('✅ Bot conectado ao WhatsApp!'); }
+      if (connection === 'open') { conectado = true; qrCode = null; falhas401 = 0; logBot('✅ Bot conectado ao WhatsApp!'); }
       if (connection === 'close') {
         conectado = false;
         const code = lastDisconnect?.error?.output?.statusCode;
@@ -219,14 +233,17 @@ async function iniciarBot() {
           logBot('Sessão encerrada no celular. Limpando e gerando novo QR...');
           try { await fs.promises.rm('./auth', { recursive: true, force: true }); } catch {}
           sock = null;
-          setTimeout(iniciarBot, 3000);
+          falhas401++;
+          const espera = Math.min(falhas401 * 10000, 60000);
+          reconectTimer = setTimeout(iniciarBot, espera);
           return;
         }
         logBot('Conexão perdida (' + code + '). Reconectando em 5s...');
-        setTimeout(iniciarBot, 5000);
+        reconectTimer = setTimeout(iniciarBot, 5000);
       }
     });
     sock.ev.on('messages.upsert', async ({ messages }) => {
+      if (gen !== botGen) return;
       for (const m of messages) {
         try {
           if (!m.message || m.key.fromMe) continue;
@@ -285,6 +302,7 @@ async function iniciarBot() {
     });
     // boas-vindas membros novos
     sock.ev.on('group-participants.update', async (u) => {
+      if (gen !== botGen) return;
       try {
         if (u.action === 'add' && db.config.msgBoasVindas) {
           await sock.sendMessage(u.id, { text: db.config.msgBoasVindas });
