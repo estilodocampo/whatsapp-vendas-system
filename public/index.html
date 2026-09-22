@@ -93,6 +93,7 @@ th{color:#94a3b8}
 <p style="font-size:14px;color:#94a3b8">Escaneie o QR Code com o WhatsApp do grupo (Aparelhos conectados). Rode <b>npm install</b> antes para ativar o bot.</p>
 <img id="qr" style="display:none">
 <div class="log" id="logs">Aguardando...</div>
+<div style="margin-top:10px"><button class="btn red" onclick="desconectar()">⛔ Desconectar bot</button></div>
 </div>
 <div class="panel"><h2>📤 Enviar aviso ao grupo</h2>
 <textarea id="msgGrupo" rows="3" placeholder="Ex: Bom dia equipe! Meta de hoje..."></textarea>
@@ -151,6 +152,7 @@ async function delVenda(id){if(confirm('Excluir venda?')){await fetch('/api/vend
 async function delP(id){if(confirm('Excluir?')){await fetch('/api/produtos/'+id,{method:'DELETE'});carregar();}}
 async function enviarGrupo(){const r=await post('/api/grupo/enviar',{msg:msgGrupo.value});alert(r.ok?'Enviado!':'Bot desconectado — mensagem registrada no log.');msgGrupo.value='';}
 async function relatorio(){await post('/api/grupo/relatorio',{});alert('Relatório enviado (se bot conectado).');}
+async function desconectar(){if(!confirm('Desconectar o bot do WhatsApp? Será preciso escanear um novo QR.'))return;const r=await post('/api/grupo/desconectar',{});alert(r.ok?'Desconectado. Escaneie o novo QR para reconectar.':'Erro: '+(r.erro||''));status();}
 carregar();setInterval(()=>{status();},5000);setInterval(carregar,15000);
 </script>
 </body>

@@ -166,6 +166,16 @@ app.post('/api/grupo/relatorio', async (req, res) => {
   await enviarRelatorio();
   res.json({ ok: true });
 });
+app.post('/api/grupo/desconectar', async (req, res) => {
+  try {
+    if (sock) { try { await sock.logout(); } catch {} sock = null; }
+    conectado = false; qrCode = null;
+    try { fs.rmSync(path.join(__dirname, 'auth'), { recursive: true, force: true }); } catch {}
+    logBot('Sessão encerrada pelo painel. Gerando novo QR...');
+    iniciarBot();
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
 
 // ---------- Funções Bot ----------
 async function enviarGrupo(texto) {
@@ -205,7 +215,14 @@ async function iniciarBot() {
       if (connection === 'close') {
         conectado = false;
         const code = lastDisconnect?.error?.output?.statusCode;
-        logBot('Conexão fechada (' + code + '). Reconectando em 5s...');
+        if (code === 401) { // desconectado no celular: não adianta insistir, gera QR novo
+          logBot('Sessão encerrada no celular. Limpando e gerando novo QR...');
+          try { await fs.promises.rm('./auth', { recursive: true, force: true }); } catch {}
+          sock = null;
+          setTimeout(iniciarBot, 3000);
+          return;
+        }
+        logBot('Conexão perdida (' + code + '). Reconectando em 5s...');
         setTimeout(iniciarBot, 5000);
       }
     });
