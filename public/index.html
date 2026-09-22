@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle de Vendas WhatsApp</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif}
+body{background:#0f172a;color:#e2e8f0;min-height:100vh}
+header{background:#16a34a;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+header h1{font-size:20px}
+header .status{background:#fff;color:#16a34a;padding:6px 14px;border-radius:20px;font-weight:bold;font-size:13px}
+nav{display:flex;gap:8px;padding:12px 24px;background:#1e293b;flex-wrap:wrap}
+nav button{background:#334155;color:#fff;border:0;padding:10px 18px;border-radius:8px;cursor:pointer;font-size:14px}
+nav button.active,nav button:hover{background:#16a34a}
+main{padding:20px 24px;max-width:1100px;margin:0 auto}
+section{display:none}section.active{display:block}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+.card{background:#1e293b;border-radius:12px;padding:16px}
+.card small{color:#94a3b8}.card b{font-size:22px;display:block;margin-top:4px}
+.panel{background:#1e293b;border-radius:12px;padding:18px;margin-bottom:16px}
+.panel h2{margin-bottom:12px;font-size:17px}
+input,select,textarea{background:#0f172a;border:1px solid #334155;color:#fff;padding:9px 12px;border-radius:8px;width:100%;margin-bottom:8px}
+button.btn{background:#16a34a;color:#fff;border:0;padding:10px 18px;border-radius:8px;cursor:pointer;font-weight:bold}
+button.btn.red{background:#dc2626}button.btn.gray{background:#475569}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:9px;text-align:left;border-bottom:1px solid #334155}
+th{color:#94a3b8}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:700px){.row{grid-template-columns:1fr}}
+#qr{max-width:220px;border-radius:10px;background:#fff;padding:8px;margin-top:10px}
+.log{background:#0f172a;border-radius:8px;padding:10px;font-size:12px;max-height:160px;overflow:auto;margin-top:10px;white-space:pre-wrap}
+.bar{background:#0f172a;border-radius:6px;height:10px;margin-top:6px;overflow:hidden}
+.bar i{display:block;height:100%;background:#16a34a}
+</style>
+</head>
+<body>
+<header>
+<h1>📱 Controle de Grupo de Vendas</h1>
+<span class="status" id="statusBot">● verificando...</span>
+</header>
+<nav>
+<button class="active" onclick="aba('dash',this)">📊 Dashboard</button>
+<button onclick="aba('vendas',this)">💰 Vendas</button>
+<button onclick="aba('vend',this)">👥 Vendedores</button>
+<button onclick="aba('est',this)">📦 Estoque</button>
+<button onclick="aba('grupo',this)">🤖 Grupo / Bot</button>
+<button onclick="aba('cfg',this)">⚙️ Config</button>
+</nav>
+<main>
+<!-- DASH -->
+<section id="dash" class="active">
+<div class="cards">
+<div class="card"><small>Vendido hoje</small><b id="cHoje">R$ 0</b><span id="cQtdHoje" style="font-size:12px;color:#94a3b8"></span></div>
+<div class="card"><small>Vendido no mês</small><b id="cMes">R$ 0</b></div>
+<div class="card"><small>Ticket médio</small><b id="cTicket">R$ 0</b></div>
+<div class="card"><small>Meta mensal</small><b id="cMeta">0%</b><div class="bar"><i id="barMeta" style="width:0%"></i></div></div>
+</div>
+<div class="panel"><h2>🏆 Ranking de vendedores</h2><div id="ranking"></div></div>
+<div class="panel"><h2>⚠️ Estoque baixo</h2><div id="estBaixo">Tudo ok.</div></div>
+</section>
+<!-- VENDAS -->
+<section id="vendas">
+<div class="panel"><h2>➕ Registrar venda</h2>
+<div class="row">
+<select id="vVend"></select>
+<input id="vValor" type="number" step="0.01" placeholder="Valor R$">
+</div>
+<input id="vDesc" placeholder="Descrição (ex: Pix cliente Maria)">
+<button class="btn" onclick="salvarVenda()">Salvar venda</button>
+</div>
+<div class="panel"><h2>🧾 Últimas vendas</h2><table><thead><tr><th>Data</th><th>Vendedor</th><th>Valor</th><th>Descrição</th><th></th></tr></thead><tbody id="tbVendas"></tbody></table></div>
+</section>
+<!-- VENDEDORES -->
+<section id="vend">
+<div class="panel"><h2>➕ Novo vendedor</h2>
+<div class="row"><input id="nNome" placeholder="Nome"><input id="nFone" placeholder="WhatsApp (ex: 5511999999999)"></div>
+<div class="row"><input id="nCom" type="number" value="10" placeholder="Comissão %"><button class="btn" onclick="salvarVendedor()">Adicionar</button></div>
+</div>
+<div class="panel"><h2>👥 Vendedores</h2><table><thead><tr><th>Nome</th><th>Telefone</th><th>Comissão</th><th></th></tr></thead><tbody id="tbVend"></tbody></table></div>
+</section>
+<!-- ESTOQUE -->
+<section id="est">
+<div class="panel"><h2>➕ Novo produto</h2>
+<div class="row"><input id="pNome" placeholder="Produto"><input id="pPreco" type="number" step="0.01" placeholder="Preço"></div>
+<div class="row"><input id="pEst" type="number" placeholder="Estoque"><button class="btn" onclick="salvarProduto()">Adicionar</button></div>
+</div>
+<div class="panel"><h2>📦 Produtos</h2><table><thead><tr><th>Produto</th><th>Preço</th><th>Estoque</th><th></th></tr></thead><tbody id="tbProd"></tbody></table></div>
+</section>
+<!-- GRUPO -->
+<section id="grupo">
+<div class="panel"><h2>🤖 Conexão WhatsApp</h2>
+<p style="font-size:14px;color:#94a3b8">Escaneie o QR Code com o WhatsApp do grupo (Aparelhos conectados). Rode <b>npm install</b> antes para ativar o bot.</p>
+<img id="qr" style="display:none">
+<div class="log" id="logs">Aguardando...</div>
+</div>
+<div class="panel"><h2>📤 Enviar aviso ao grupo</h2>
+<textarea id="msgGrupo" rows="3" placeholder="Ex: Bom dia equipe! Meta de hoje..."></textarea>
+<div class="row"><button class="btn" onclick="enviarGrupo()">Enviar</button><button class="btn gray" onclick="relatorio()">📊 Enviar relatório agora</button></div>
+</div>
+<div class="panel"><h2>📖 Comandos do bot no grupo</h2>
+<p style="font-size:14px;line-height:1.9">!venda VALOR DESCRIÇÃO — registra venda<br>!ranking — top do mês<br>!meta — progresso da meta<br>!estoque — ver estoque<br>!ajuda — ajuda</p></div>
+</section>
+<!-- CONFIG -->
+<section id="cfg">
+<div class="panel"><h2>⚙️ Configurações</h2>
+<label style="font-size:13px">ID do grupo (preenchido auto no 1º comando)</label><input id="cGrupo" placeholder="1203...@g.us">
+<label style="font-size:13px">Meta mensal R$</label><input id="cMetaV" type="number">
+<label style="font-size:13px">Mensagem de boas-vindas</label><input id="cBoas">
+<div class="row"><input id="cHora" placeholder="Horário relatório (18:00)"><button class="btn" onclick="salvarConfig()">Salvar</button></div>
+</div>
+</section>
+</main>
+<script>
+const api = p => fetch(p).then(r => r.json());
+function aba(id, btn){document.querySelectorAll('section').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');}
+const BRL = v => 'R$ ' + Number(v||0).toFixed(2);
+async function carregar(){
+  const d = await api('/api/dashboard');
+  cHoje.textContent = BRL(d.totalHoje); cQtdHoje.textContent = d.qtdHoje + ' vendas hoje';
+  cMes.textContent = BRL(d.totalMes); cTicket.textContent = BRL(d.ticketMedio);
+  cMeta.textContent = d.pctMeta + '% da meta'; barMeta.style.width = Math.min(100,d.pctMeta)+'%';
+  ranking.innerHTML = d.ranking.map((r,i)=>`${i+1}º <b>${r.nome}</b> — ${BRL(r.total)} (${r.qtd} vendas)`).join('<br>') || 'Sem vendas ainda.';
+  estBaixo.textContent = d.estoqueBaixo.length ? d.estoqueBaixo.map(p=>`${p.nome}: ${p.estoque} un`).join(' | ') : 'Tudo ok.';
+  const vs = await api('/api/vendedores');
+  vVend.innerHTML = vs.filter(v=>v.ativo).map(v=>`<option value="${v.id}">${v.nome}</option>`).join('');
+  tbVend.innerHTML = vs.map(v=>`<tr><td>${v.nome}</td><td>${v.telefone||'-'}</td><td>${v.comissao}%</td><td><button class="btn red" onclick="delV(${v.id})">X</button></td></tr>`).join('');
+  const vendas = await api('/api/vendas');
+  tbVendas.innerHTML = vendas.slice(0,50).map(v=>`<tr><td>${new Date(v.data).toLocaleString('pt-BR')}</td><td>${v.vendedorNome}</td><td>${BRL(v.valor)}</td><td>${v.descricao||''} <small style="color:#94a3b8">${v.origem||''}</small></td><td><button class="btn red" onclick="delVenda(${v.id})">X</button></td></tr>`).join('');
+  const ps = await api('/api/produtos');
+  tbProd.innerHTML = ps.map(p=>`<tr><td>${p.nome}</td><td>${BRL(p.preco)}</td><td>${p.estoque}</td><td><button class="btn red" onclick="delP(${p.id})">X</button></td></tr>`).join('');
+  const c = await api('/api/config');
+  cGrupo.value=c.grupoId||'';cMetaV.value=c.metaMensal||'';cBoas.value=c.msgBoasVindas||'';cHora.value=c.horarioRelatorio||'';
+  status();
+}
+async function status(){
+  try{const s = await api('/api/grupo/status');
+  statusBot.textContent = s.conectado ? '● Bot conectado' : (s.qr ? '● Escaneie o QR' : '● Bot desconectado');
+  statusBot.style.color = s.conectado ? '#16a34a' : '#dc2626';
+  if(s.qr){qr.style.display='block';qr.src=s.qr;}else qr.style.display='none';
+  logs.textContent = (s.logs||[]).join('\n') || 'Sem logs.';
+  }catch{}
+}
+async function post(url,body){return fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json());}
+async function salvarVenda(){const r=await post('/api/vendas',{vendedorId:vVend.value,valor:vValor.value,descricao:vDesc.value});if(r.erro)return alert(r.erro);vValor.value='';vDesc.value='';carregar();}
+async function salvarVendedor(){const r=await post('/api/vendedores',{nome:nNome.value,telefone:nFone.value,comissao:nCom.value});if(r.erro)return alert(r.erro);nNome.value='';nFone.value='';carregar();}
+async function salvarProduto(){const r=await post('/api/produtos',{nome:pNome.value,preco:pPreco.value,estoque:pEst.value});if(r.erro)return alert(r.erro);pNome.value='';carregar();}
+async function salvarConfig(){await post('/api/config',{grupoId:cGrupo.value,metaMensal:Number(cMetaV.value),msgBoasVindas:cBoas.value,horarioRelatorio:cHora.value});alert('Salvo!');}
+async function delV(id){if(confirm('Excluir?')){await fetch('/api/vendedores/'+id,{method:'DELETE'});carregar();}}
+async function delVenda(id){if(confirm('Excluir venda?')){await fetch('/api/vendas/'+id,{method:'DELETE'});carregar();}}
+async function delP(id){if(confirm('Excluir?')){await fetch('/api/produtos/'+id,{method:'DELETE'});carregar();}}
+async function enviarGrupo(){const r=await post('/api/grupo/enviar',{msg:msgGrupo.value});alert(r.ok?'Enviado!':'Bot desconectado — mensagem registrada no log.');msgGrupo.value='';}
+async function relatorio(){await post('/api/grupo/relatorio',{});alert('Relatório enviado (se bot conectado).');}
+carregar();setInterval(()=>{status();},5000);setInterval(carregar,15000);
+</script>
+</body>
+</html>
